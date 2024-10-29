@@ -1,31 +1,24 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:latest
 
+# Set destination for COPY
 WORKDIR /app
 
-# Copy go mod files first for better caching
-COPY go.mod .
-COPY go.sum .
+# Download Go modules
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the source code
-COPY . .
+# Copy the source code. Note the slash at the end, as explained in
+# https://docs.docker.com/engine/reference/builder/#copy
+COPY *.go ./
 
-# Build the application
-RUN go build -o server .
+# Build
+RUN CGO_ENABLED=0 GOOS=linux go build -o /docker-gs-ping
 
-# Start a new stage from scratch
-FROM alpine:latest
-
-WORKDIR /app
-
-# Add CA certificates in case you need HTTPS
-RUN apk --no-cache add ca-certificates
-
-# Copy the binary from builder
-COPY --from=builder /app/server .
-
-# Expose port 8080
+# To bind to a TCP port, runtime parameters must be supplied to the docker command.
+# But we can (optionally) document in the Dockerfile what ports
+# the application is going to listen on by default.
+# https://docs.docker.com/engine/reference/builder/#expose
 EXPOSE 8080
 
-# Run the binary
-CMD ["./server"]
+# Run
+CMD [ "/docker-gs-ping" ]
